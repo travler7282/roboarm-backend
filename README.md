@@ -1,15 +1,113 @@
-# www-travler7282-com
+# roboarm-backend
 
-## Frontends
+Python 3.11 + FastAPI backend for the **RoboArm** robotic arm controller.
+Exposes a BLE control API and a live camera feed via WebSocket.
 
-The www-travler7282-com repository is the home of the www.travler7282.com
-website showcasing work by Michael Hunt (travler7282). The root of the site
-is the landing-page app; this is a Vite app built without a UI framework.
-The landing page is a portfolio starting point where the visitor explores
-information about me and selects an app from the showcase. Each app is 
-displayed along with the tech stack and clicking on an app opens it in the
-browser. There are other features, links, skills, images, and items on the
-page as well.
+Part of the [www.travler7282.com](https://www.travler7282.com) portfolio.
+The companion frontend lives in the main monorepo at `apps/roboarm`.
+
+## Tech Stack
+
+- **Python** ≥ 3.11
+- **FastAPI** — REST + WebSocket API
+- **Bleak** — Bluetooth Low Energy (BLE) control
+- **OpenCV** — USB camera capture
+- **Uvicorn** — ASGI server (port 8000)
+
+## API Endpoints
+
+All endpoints are available at both the bare path and the prefixed path
+`/roboarm/api/v1/<endpoint>` (used by the K8s Traefik ingress).
+
+| Endpoint | Description |
+|---|---|
+| `GET /healthz` | Liveness check |
+| `GET /readyz` | Readiness check |
+| `GET /docs` | SwaggerUI OpenAPI docs |
+| `GET /ble/scan` | Scan for BLE devices |
+| `WebSocket /ws/camera` | Live MJPEG camera stream |
+| `WebSocket /ws/ble/{address}` | BLE command channel |
+
+## Local Development
+
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate      # Windows
+source .venv/bin/activate   # Linux / macOS
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run dev server
+uvicorn main:app --reload --port 8000
+```
+
+Visit `http://localhost:8000/docs` for the interactive OpenAPI UI.
+
+## Environment Variables
+
+See [`.env.example`](.env.example) for all supported variables.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ROBOARM_CORS_ALLOWED_ORIGINS` | `*` | Comma-separated allowed CORS origins |
+| `ROBOARM_CAMERA_DEVICE` | `0` | Camera device index or path (e.g. `/dev/video0`) |
+| `ROBOARM_CAMERA_WIDTH` | `1280` | Capture width in pixels |
+| `ROBOARM_CAMERA_HEIGHT` | `720` | Capture height in pixels |
+| `ROBOARM_CAMERA_JPEG_QUALITY` | `80` | JPEG compression quality (1–100) |
+
+## Running Tests
+
+```bash
+pytest tests
+```
+
+Or with coverage:
+
+```bash
+pytest tests --cov=. --cov-report=term-missing
+```
+
+## Docker
+
+```bash
+# Build
+docker build -t roboarm .
+
+# Run
+docker run --rm -p 8000:8000 roboarm
+```
+
+The container runs as a non-root user. BLE requires the `NET_RAW` capability
+and access to the host D-Bus socket; see [`infrastructure/k8s/`](infrastructure/k8s/)
+for the full K8s deployment manifests.
+
+## Deployment
+
+Docker images are published to Docker Hub at `travler7282/roboarm`.
+
+| Branch | Tag suffix | Environment |
+|---|---|---|
+| `dev` | `-dev` | dev.travler7282.com |
+| `main` | _(none)_ | www.travler7282.com / api.travler7282.com |
+
+CI/CD is handled by GitHub Actions:
+- Push to `dev` → [`.github/workflows/deploy_dev.yml`](.github/workflows/deploy_dev.yml)
+- Push to `main` → [`.github/workflows/deploy_prod.yml`](.github/workflows/deploy_prod.yml)
+
+## Infrastructure
+
+K8s manifests live in [`infrastructure/k8s/`](infrastructure/k8s/).
+The service is routed by Traefik at `api.travler7282.com/roboarm/api/v1/`.
+Manifests are applied manually by the owner.
+
+## Social
+
+[LinkedIn](https://www.linkedin.com/in/travler7282) ·
+[GitHub](https://github.com/travler7282) ·
+[X](https://twitter.com/travler7282)
+
 
 ## Infrastructure
 

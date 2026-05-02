@@ -1,21 +1,176 @@
-# AGENTS.md — Agent Instructions for www-travler7282-com
+# AGENTS.md — Agent Instructions for roboarm-backend
 
-This file tells AI coding agents (Ona, Copilot, Cursor, etc.) how this repository
-is structured and how to work within it correctly.
+This file tells AI coding agents (Copilot, Cursor, Claude, etc.) how this
+repository is structured and how to work within it correctly.
 
 ---
 
 ## Repository Overview
 
-Personal portfolio monorepo for [www.travler7282.com](https://www.travler7282.com).
+Standalone Python/FastAPI backend for the **RoboArm** robotic arm controller.
 Owner: Michael Hunt (travler7282).
 
-| Layer | Location | Description |
+Previously part of the `www-travler7282-com` monorepo; now maintained as its
+own repository at `travler7282/roboarm-backend`.
+
+---
+
+## Repository Layout
+
+```
+main.py                  # FastAPI application entry point
+requirements.txt         # Pinned direct + transitive dependencies
+requirements.lock        # pip freeze lock (all transitive pins)
+pyproject.toml           # Project metadata and pytest config
+Dockerfile               # Production container image
+
+tests/
+  test_health.py         # Unit tests (pytest)
+
+infrastructure/
+  k8s/
+    deployment-dev.yaml  # K8s manifest — dev environment
+    deployment-prod.yaml # K8s manifest — prod environment
+
+.github/
+  workflows/
+    deploy_dev.yml   # Push to dev → build + push Docker image (dev tag)
+    deploy_prod.yml  # Push to main → build + push Docker image (prod tag)
+```
+
+---
+
+## Branch and Environment Mapping
+
+| Branch | Environment | Docker tag suffix |
 |---|---|---|
-| Frontend apps | `apps/` | Four Vite/TypeScript SPAs |
-| Backend services | `backends/` | Node/Express (SDRx) + Python/FastAPI (RoboArm, WXStation, DevOps Assistant) |
-| Infrastructure | `infrastructure/` | AWS CloudFront configs + K8s manifests |
-| CI/CD | `.github/workflows/` | GitHub Actions deploy to dev and prod |
+| `dev` | Development (dev.travler7282.com) | `-dev` |
+| `main` | Production (www.travler7282.com) | _(none)_ |
+
+Feature branches are merged into `dev` first, then `dev` → `main` via PR.
+Agents must **never** commit directly to `main` or `dev`.
+
+---
+
+## Tech Stack
+
+- **Python** ≥ 3.11
+- **FastAPI** — REST + WebSocket API
+- **Bleak** — Bluetooth Low Energy (BLE) control
+- **OpenCV** (`opencv-python-headless`) — USB camera capture
+- **Uvicorn** — ASGI server, port 8000
+- **pytest** + **pytest-cov** — testing and coverage
+
+---
+
+## Common Commands
+
+```bash
+# Create local virtual environment
+python -m venv .venv
+
+# Install dependencies (Windows)
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# Run dev server
+.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+
+# Run tests
+.venv\Scripts\python.exe -m pytest tests
+
+# Run tests with coverage
+.venv\Scripts\python.exe -m pytest tests --cov=. --cov-report=term-missing
+```
+
+---
+
+## CI/CD Pipeline
+
+Both workflows follow the same steps:
+
+1. Install Python 3.11 and `requirements.txt`.
+2. Run `pytest tests` with coverage.
+3. Resolve the service version from `pyproject.toml`.
+4. Build and push the Docker image to `travler7282/roboarm` on Docker Hub.
+
+**Required GitHub Secrets** (do not hardcode or log these):
+`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+
+---
+
+## Code Conventions
+
+- Python ≥ 3.11; type hints required on all public functions.
+- FastAPI routes must include both bare paths and `/roboarm/api/v1/<path>`
+  prefixed variants so the K8s Traefik ingress and local dev both work.
+- Keep `requirements.txt` pinned to exact versions.
+- After adding/upgrading dependencies, regenerate `requirements.lock`
+  via `pip freeze > requirements.lock`.
+
+---
+
+## Backend Versioning Policy
+
+Version is defined in `pyproject.toml` under `[project] version`.
+
+- **Patch** (`x.y.Z`): bug fixes, probe/path fixes.
+- **Minor** (`x.Y.z`): new endpoints, backward-compatible features.
+- **Major** (`X.y.z`): breaking API changes, removed endpoints.
+
+Dev workflow appends `-dev` to the image tag. Prod publishes the plain version.
+Do not merge backend changes without an intentional version bump.
+
+---
+
+## K8s Deployment
+
+Manifests in `infrastructure/k8s/` are applied **manually** by the owner.
+Agents must not modify these files unless explicitly asked.
+
+The service is accessible at `api.travler7282.com/roboarm/api/v1/`.
+
+### Live Ops Guardrails
+
+1. Always label scope: local file edits vs. live `kubectl` changes.
+2. Triage order: `rollout status` → `get pods` → `describe pod` → `logs --previous`.
+3. Readiness/liveness probes target `/readyz` and `/healthz` on port 8000.
+4. Never print, echo, or commit secret values.
+
+---
+
+## Git and PR Workflow
+
+1. Create a GitHub issue (label: `ai-generated`).
+2. Create a feature branch from `main` named after the issue.
+3. Commit changes to the feature branch.
+4. Open a PR targeting `dev` (label: `ai-generated`).
+5. Owner merges `dev` → CI builds and pushes the dev-tagged image.
+6. Owner opens PR `dev` → `main` → CI builds and pushes the prod-tagged image.
+
+**Issue description format (required):**
+First sentence must follow: `As a <role>, I want to <capability>, so that <benefit>.`
+
+---
+
+## Multi-Agent Instruction Strategy
+
+`AGENTS.md` is the single source of truth. Adapter files are thin pointers:
+
+- `.github/copilot-instructions.md` — Copilot adapter
+- `.claude/CLAUDE.md` — Claude adapter
+- `.cursor/rules/agents.mdc` — Cursor adapter
+
+Update `AGENTS.md` first; then update adapters in the same commit.
+
+---
+
+## What Agents Should NOT Do
+
+- Do not commit directly to `main` or `dev`.
+- Do not hardcode or log secret values.
+- Do not modify `infrastructure/k8s/` without explicit instruction.
+- Do not change `pyproject.toml` version without a deliberate version bump.
+
 
 ---
 
